@@ -1,27 +1,64 @@
 # Mantem UMA versao de cada coisa, atualizada em um unico lugar (um PR por ecossistema).
+# Atualizacoes MAJOR (Spring Boot 4, Node 25, TypeScript 7...) nao entram sozinhas: exigem migracao planejada
+# (ver docs/DIVIDA-TECNICA.md). Minor e patch continuam automaticos.
 version: 2
 updates:
   - package-ecosystem: maven
     directory: /backend
     schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       spring-boot:
         patterns: ["org.springframework*"]
+  - package-ecosystem: maven
+    directory: /microservices/services
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       angular:
         patterns: ["@angular/*"]
   - package-ecosystem: npm
+    directory: /microservices/web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-architects/*"]
+  - package-ecosystem: npm
     directory: /e2e
     schedule: { interval: weekly }
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /backend
     schedule: { interval: weekly }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /frontend
     schedule: { interval: weekly }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
