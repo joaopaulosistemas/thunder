@@ -1,0 +1,5 @@
+{
+  "mfe-catalog": "/mfe/catalog/remoteEntry.json",
+  "mfe-orders": "/mfe/orders/remoteEntry.json",
+  "mfe-notifications": "/mfe/notifications/remoteEntry.json"
+}

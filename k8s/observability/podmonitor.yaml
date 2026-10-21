@@ -1,0 +1,21 @@
+# Faz o Prometheus (kube-prometheus-stack / Prometheus Operator) coletar as metricas dos pods.
+# Fica FORA do base porque depende do CRD do operator. Sem isso o canary.sh nao tem metricas
+# e (de proposito) reverte o release. Aplique uma vez: kubectl apply -f k8s/observability/podmonitor.yaml
+# Os series ganham os labels namespace/pod, que o canary.sh usa para isolar o canario.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: shop-backend
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack   # ajuste para o label que o seu operator seleciona
+spec:
+  namespaceSelector:
+    matchNames: [shop, shop-staging]
+  selector:
+    matchExpressions:
+      - { key: app, operator: In, values: [backend, gateway] }
+  podMetricsEndpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 15s

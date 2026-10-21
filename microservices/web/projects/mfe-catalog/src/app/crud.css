@@ -1,0 +1,29 @@
+h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+h2 { margin: 0 0 0.5rem; font-size: 1rem; flex-basis: 100%; }
+.msg { margin: 0 0 1rem; padding: 0.55rem 0.8rem; border-radius: 6px; background: var(--good-bg, #e0f3e6); color: var(--good, #1b7a3a); }
+.msg.err { background: var(--bad-bg, #fbe5e3); color: var(--bad, #b3261e); }
+.filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-bottom: 1rem; }
+.editor { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--rule, #ddd); border-radius: 8px; background: var(--surface, #fff); }
+.editor.inline { padding: 0.75rem 1rem; }
+label { display: grid; gap: 0.2rem; font-size: 0.85rem; color: var(--muted, #666); min-width: 0; }
+input, select { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--rule, #ccc); border-radius: 6px; background: var(--surface, #fff); color: var(--fg, #111); min-width: 0; }
+.row { display: flex; gap: 0.5rem; flex-basis: 100%; }
+button { font: inherit; padding: 0.35rem 0.8rem; border: 1px solid var(--rule, #ccc); border-radius: 6px; background: var(--surface, #fff); color: var(--fg, #111); cursor: pointer; }
+button.primary { background: var(--accent, #0b6e69); border-color: var(--accent, #0b6e69); color: #fff; }
+button.danger { background: var(--bad, #b3261e); border-color: var(--bad, #b3261e); color: #fff; }
+button:disabled { opacity: 0.5; cursor: default; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule, #ddd); border-radius: 8px; background: var(--surface, #fff); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.6rem 0.9rem; text-align: left; border-bottom: 1px solid var(--rule, #ddd); }
+tr:last-child td { border-bottom: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.low { color: var(--bad, #b3261e); font-weight: 600; }
+.actions { white-space: nowrap; text-align: right; }
+.actions button + button { margin-left: 0.4rem; }
+.confirm { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; justify-content: flex-end; }
+.empty { color: var(--muted, #666); text-align: center; }
+.hint { color: var(--muted, #666); font-size: 0.85rem; }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
+.pager button { padding: 0.4rem 0.9rem; }
+.pager button:disabled { opacity: 0.5; cursor: not-allowed; }

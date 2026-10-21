@@ -1,0 +1,40 @@
+# SLO: 99,9% das requisicoes /api sem erro 5xx (orcamento de erro = 0,1%).
+# Alertas por taxa de consumo (burn rate) em duas janelas, como no livro de SRE do Google.
+groups:
+  - name: shop-sli
+    rules:
+      - record: sli:http_error_ratio:rate5m
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*",status=~"5.."}[5m]))
+          / sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*"}[5m]))
+      - record: sli:http_error_ratio:rate30m
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*",status=~"5.."}[30m]))
+          / sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*"}[30m]))
+      - record: sli:http_error_ratio:rate1h
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*",status=~"5.."}[1h]))
+          / sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*"}[1h]))
+      - record: sli:http_error_ratio:rate6h
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*",status=~"5.."}[6h]))
+          / sum(rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*"}[6h]))
+
+  - name: shop-slo-alerts
+    rules:
+      - alert: ErrorBudgetBurnFast
+        expr: sli:http_error_ratio:rate5m > (14.4 * 0.001) and sli:http_error_ratio:rate1h > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "Orcamento de erro sendo consumido 14x mais rapido que o permitido"
+          action: "Pausar releases, reverter o ultimo deploy (canario) e abrir incidente"
+      - alert: ErrorBudgetBurnSlow
+        expr: sli:http_error_ratio:rate30m > (6 * 0.001) and sli:http_error_ratio:rate6h > (6 * 0.001)
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Orcamento de erro sendo consumido 6x mais rapido que o permitido"
+          action: "Desacelerar releases e priorizar correcoes de confiabilidade"

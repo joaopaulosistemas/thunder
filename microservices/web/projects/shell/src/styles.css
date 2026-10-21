@@ -1,0 +1,41 @@
+/* Tokens do shell: os microfrontends rodam neste mesmo documento e usam estas variaveis. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --fg: #16222c;
+  --muted: #5a6975;
+  --rule: #d5dde3;
+  --accent: #0b6e69;
+  --accent-bg: #dcf0ee;
+  --warn: #b7791f;
+  --warn-bg: #fdf3e0;
+  --bad: #b3261e;
+  --bad-bg: #fbe5e3;
+  --good: #1b7a3a;
+  --good-bg: #e0f3e6;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f161b;
+    --surface: #17212a;
+    --fg: #e5ecf1;
+    --muted: #9bacb8;
+    --rule: #28353f;
+    --accent: #4cc7bd;
+    --accent-bg: #123230;
+    --warn: #e5a553;
+    --warn-bg: #38280f;
+    --bad: #ff8a80;
+    --bad-bg: #3d1a17;
+    --good: #6fd08c;
+    --good-bg: #14301d;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}

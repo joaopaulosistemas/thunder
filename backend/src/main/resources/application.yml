@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: shop
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/shop}
+    username: ${DB_USER:shop}
+    password: ${DB_PASSWORD:shop}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 5m
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri so valida o claim "iss"; as chaves vem de jwk-set-uri (sem discovery no startup),
+          # porque dentro do Docker o backend alcanca o Keycloak por outro host que o navegador.
+          issuer-uri: ${AUTH_ISSUER:http://localhost:8180/realms/shop}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8180/realms/shop/protocol/openid-connect/certs}
+          audiences: ${AUTH_AUDIENCE:shop-api}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+
+app:
+  events:
+    enabled: ${EVENTS_ENABLED:true}
+
+features:
+  bulk-discount: ${FEATURES_BULK_DISCOUNT:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: shop
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:ecs}
+
+server:
+  shutdown: graceful

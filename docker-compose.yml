@@ -1,0 +1,228 @@
+services:
+  # ---------- Entrada: gateway + Angular ----------
+  frontend:
+    build: ./frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - gateway
+      - keycloak
+
+  # ---------- Identidade: Keycloak (OIDC / OAuth2) ----------
+  # Modo dev (H2 embutido) so para o prototipo. Em producao: start --optimized, banco proprio, HTTPS.
+  # KC_HOSTNAME fixa o "iss" dos tokens em http://localhost:8180/realms/shop, igual para o
+  # navegador e para o backend (que busca as chaves por http://keycloak:8080).
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak/shop-realm.json:/opt/keycloak/data/import/shop-realm.json:ro
+      - keycloakdata:/opt/keycloak/data/h2
+    ports:
+      - "8180:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"status": "UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ---------- Aplicacao ----------
+  backend:
+    build: ./backend
+    environment:
+      AUTH_ISSUER: http://localhost:8180/realms/shop
+      AUTH_JWK_SET_URI: http://keycloak:8080/realms/shop/protocol/openid-connect/certs
+      AUTH_AUDIENCE: shop-api
+      DB_URL: jdbc:postgresql://postgres:5432/shop
+      DB_USER: shop
+      DB_PASSWORD: shop
+      APP_DATASOURCE_REPLICA_URL: jdbc:postgresql://postgres-replica:5432/shop
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP: kafka:9092
+      EVENTS_ENABLED: "true"
+      OTEL_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      FEATURES_BULK_DISCOUNT: "false"
+    # Sem "ports": o backend so e alcancavel pela rede interna, atras do gateway.
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-replica:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+
+  # API Gateway: unica porta de entrada da API. Valida o JWT, autoriza por papel, limita por usuario
+  # (Redis), repete GET em falha de infra, injeta X-Request-Id e propaga o trace.
+  gateway:
+    build: ./gateway
+    environment:
+      AUTH_ISSUER: http://localhost:8180/realms/shop
+      AUTH_JWK_SET_URI: http://keycloak:8080/realms/shop/protocol/openid-connect/certs
+      AUTH_AUDIENCE: shop-api
+      BACKEND_URL: http://backend:8080
+      REDIS_HOST: redis
+      OTEL_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+    ports:
+      - "8080:8080"     # API e Swagger: http://localhost:8080
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # ---------- Dados ----------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shop
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/primary-init.sh:/docker-entrypoint-initdb.d/01-replication.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-replica:
+    image: postgres:16-alpine
+    entrypoint: ["/bin/sh", "/replica-entrypoint.sh"]
+    environment:
+      PGPASSWORD: replicator
+    volumes:
+      - pgreplica:/var/lib/postgresql/data
+      - ./infra/postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  # ---------- Observabilidade: metricas, traces, logs ----------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/rules:/etc/prometheus/rules:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+      - alertmanager
+
+  # Recebe os alertas de burn rate do Prometheus e os entrega a um webhook.
+  # Em producao troque o receiver por PagerDuty/Slack/e-mail (veja observability/alertmanager.yml).
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    depends_on:
+      - alert-sink
+
+  # Receptor de webhook de exemplo: so imprime o que o Alertmanager enviar (docker compose logs alert-sink)
+  alert-sink:
+    image: mendhak/http-https-echo:35
+    environment:
+      HTTP_PORT: "8080"
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./observability/tempo.yml:/etc/tempo.yml:ro
+
+  loki:
+    image: grafana/loki:3.2.1
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./observability/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+
+  # ---------- Qualidade de codigo (opcional): docker compose --profile quality up sonarqube ----------
+  sonarqube:
+    image: sonarqube:community
+    profiles: ["quality"]
+    ports:
+      - "9000:9000"
+
+volumes:
+  pgdata:
+  pgreplica:
+  keycloakdata:

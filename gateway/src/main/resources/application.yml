@@ -1,0 +1,73 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: shop-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH_ISSUER:http://localhost:8180/realms/shop}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8180/realms/shop/protocol/openid-connect/certs}
+          audiences: ${AUTH_AUDIENCE:shop-api}
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 1000
+        response-timeout: 10s
+      default-filters:
+        - SecureHeaders
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@userKeyResolver}"
+            redis-rate-limiter.replenishRate: ${RATE_LIMIT_RPS:20}
+            redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST:40}
+            redis-rate-limiter.requestedTokens: 1
+      routes:
+        - id: backend-api
+          uri: ${BACKEND_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/**
+          filters:
+            # Retry so de GET (idempotente) e so em falha de infraestrutura; POST nunca e repetido.
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 500ms
+        - id: backend-docs
+          uri: ${BACKEND_URL:http://localhost:8081}
+          predicates:
+            - Path=/v3/api-docs/**,/swagger-ui/**,/swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  metrics:
+    tags:
+      application: shop-gateway
+
+logging:
+  structured:
+    format:
+      console: ecs

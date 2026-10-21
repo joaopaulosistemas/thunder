@@ -1,0 +1,17 @@
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+.idea/
+.vscode/
+
+# microservices e testes
+microservices/web/node_modules/
+microservices/web/dist/
+microservices/web/.angular/
+microservices/services/**/target/
+microservices/infra/tls/certs/
+microservices/infra/vm/generated/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/

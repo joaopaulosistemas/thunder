@@ -1,0 +1,12 @@
+# Producao endurecida: producao + TLS ate Kafka e PostgreSQL + segredos vindos do cofre (External
+# Secrets). Pre-requisitos: Linkerd, External Secrets e o ClusterSecretStore "shop-secrets"
+# (modelo em optional/external-secrets/cluster-secret-store.example.yaml).
+# Uso: kubectl apply -k microservices/k8s/overlays/production-secure
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shop
+resources:
+  - ../production
+  - ../../optional/external-secrets
+components:
+  - ../../optional/internal-tls

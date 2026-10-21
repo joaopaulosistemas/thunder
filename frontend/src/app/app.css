@@ -1,0 +1,74 @@
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: system-ui, sans-serif;
+}
+
+.sub {
+  color: #666;
+  margin-top: 0;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.who {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.token code {
+  background: #f1f1f1;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+form {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+select,
+input,
+button {
+  font: inherit;
+  padding: 8px;
+}
+
+button {
+  cursor: pointer;
+}
+
+ul {
+  padding-left: 18px;
+}
+
+li {
+  margin-bottom: 6px;
+}
+
+small {
+  color: #666;
+  margin-left: 6px;
+}
+
+.ok {
+  color: #1a7f37;
+}
+
+.err {
+  color: #b42318;
+}

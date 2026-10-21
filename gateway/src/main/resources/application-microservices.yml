@@ -1,0 +1,35 @@
+# Perfil "microservices": cada grupo de rotas vai para o seu servico. (Listas do Spring sao
+# substituidas por inteiro por este perfil, entao as rotas do monolito deixam de valer.)
+spring:
+  cloud:
+    gateway:
+      default-filters:
+        - SecureHeaders
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@userKeyResolver}"
+            redis-rate-limiter.replenishRate: ${RATE_LIMIT_RPS:20}
+            redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST:40}
+            redis-rate-limiter.requestedTokens: 1
+        # Retry so de GET (idempotente) e so em falha de infraestrutura; POST nunca e repetido.
+        - name: Retry
+          args:
+            retries: 2
+            methods: GET
+            statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+            backoff:
+              firstBackoff: 50ms
+              maxBackoff: 500ms
+      routes:
+        - id: catalog-service
+          uri: ${CATALOG_URL:http://catalog-service:8080}
+          predicates:
+            - Path=/api/products/**,/api/admin/products/**,/api/categories/**,/api/admin/categories/**,/api/me
+        - id: order-service
+          uri: ${ORDERS_URL:http://order-service:8080}
+          predicates:
+            - Path=/api/orders/**,/api/admin/summary
+        - id: notification-service
+          uri: ${NOTIFICATIONS_URL:http://notification-service:8080}
+          predicates:
+            - Path=/api/notifications/**

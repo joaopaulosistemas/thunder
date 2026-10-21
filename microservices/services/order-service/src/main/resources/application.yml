@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: order-service
+  config:
+    import: classpath:shop-common.yml
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/orders}
+  kafka:
+    consumer:
+      group-id: order-service
+
+server:
+  port: 8080
+
+management:
+  metrics:
+    tags:
+      application: order-service
+
+app:
+  orders:
+    pending-timeout: ${ORDER_PENDING_TIMEOUT:PT2M}   # pedido PENDING alem disso e recusado
+    reaper-poll-ms: ${ORDER_REAPER_POLL_MS:30000}

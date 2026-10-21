@@ -1,0 +1,106 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shop-staging
+resources:
+  - ../../base
+  - namespace.yaml
+patches:
+  - target: { kind: HorizontalPodAutoscaler, name: catalog-service }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: order-service }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: notification-service }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: gateway }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: shell }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: mfe-catalog }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: mfe-orders }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: HorizontalPodAutoscaler, name: mfe-notifications }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: { kind: Ingress, name: shop }
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: staging.shop.example.com
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: staging.shop.example.com
+      - op: replace
+        path: /metadata/annotations/cert-manager.io~1cluster-issuer
+        value: letsencrypt-staging
+  - target: { kind: ConfigMap, name: shop-config }
+    patch: |-
+      - op: replace
+        path: /data/AUTH_ISSUER
+        value: https://auth-staging.example.com/realms/shop
+      - op: replace
+        path: /data/AUTH_JWK_SET_URI
+        value: http://keycloak.auth-staging.svc.cluster.local:8080/realms/shop/protocol/openid-connect/certs
+      - op: replace
+        path: /data/TRACING_SAMPLING
+        value: "1.0"
+      - op: replace
+        path: /data/KAFKA_TOPIC_REPLICAS
+        value: "1"
+  - target: { kind: ConfigMap, name: frontend-config }
+    patch: |-
+      - op: replace
+        path: /data/config.json
+        value: |
+          {
+            "keycloakUrl": "https://auth-staging.example.com",
+            "realm": "shop",
+            "clientId": "shop-frontend"
+          }

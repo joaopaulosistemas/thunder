@@ -1,0 +1,134 @@
+name: release-microservices
+
+# Mesmo desenho do release do monolito, para a arquitetura de microsservicos: publica UMA imagem por
+# servico e por microfrontend (mesma tag = sha), sobe em staging com smoke e so entao pede aprovacao
+# para producao. Todas as imagens avancam juntas para a mesma versao testada.
+#
+# Em producao cada servico passa por canario proprio, um depois do outro (scripts/canary-service.sh).
+#
+# SOMENTE MANUAL de proposito: monolito (release.yml) e microsservicos usam os mesmos namespaces
+# (shop, shop-staging) e nomes de recurso (gateway, shell...), entao aplicar os dois no mesmo cluster
+# um por cima do outro derrubaria o anterior. Ao adotar os microsservicos, troque o gatilho abaixo por
+# workflow_run (como no release.yml) e desative o release do monolito.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-microservices
+  cancel-in-progress: false
+
+jobs:
+  # Barreira: nada e publicado sem os testes unitarios, de contrato e de integracao (Postgres e Kafka reais).
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: microservices/services
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - run: mvn -B verify
+      - name: Relatorios de teste
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-de-teste
+          path: |
+            microservices/services/**/target/surefire-reports
+            microservices/services/**/target/failsafe-reports
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { app: catalog-service,      context: microservices/services, args: "SERVICE=catalog-service" }
+          - { app: order-service,        context: microservices/services, args: "SERVICE=order-service" }
+          - { app: notification-service, context: microservices/services, args: "SERVICE=notification-service" }
+          - { app: shell,                context: microservices/web, args: "APP=shell\nCONF=nginx.shell.conf" }
+          - { app: mfe-catalog,          context: microservices/web, args: "APP=mfe-catalog\nCONF=nginx.remote.conf" }
+          - { app: mfe-orders,           context: microservices/web, args: "APP=mfe-orders\nCONF=nginx.remote.conf" }
+          - { app: mfe-notifications,    context: microservices/web, args: "APP=mfe-notifications\nCONF=nginx.remote.conf" }
+          - { app: gateway,              context: gateway, args: "" }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - id: vars
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          build-args: ${{ matrix.args }}
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/shop-${{ matrix.app }}:${{ steps.vars.outputs.sha }}
+
+  staging:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.sha }}
+      - name: Configura o kubectl
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+      - name: Deploy em staging
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: ./scripts/deploy-microservices.sh staging "${{ needs.publish.outputs.sha }}"
+      - name: Smoke test
+        run: ./scripts/smoke.sh shop-staging
+
+  production:
+    needs: [publish, staging]
+    runs-on: ubuntu-latest
+    # Settings > Environments > production: revisores obrigatorios (aprovacao manual)
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.sha }}
+      - name: Configura o kubectl
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+      - name: Config e microfrontends (os 3 servicos permanecem na versao atual)
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: ./scripts/deploy-microservices.sh production "${{ needs.publish.outputs.sha }}"
+      - name: Canario por servico (10% > 25% > 50%, rollback por SLO)
+        env:
+          PROM_URL: ${{ secrets.PROM_URL }}
+          IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/shop
+          SHA: ${{ needs.publish.outputs.sha }}
+        run: |
+          for svc in catalog-service order-service notification-service; do
+            ./scripts/canary-service.sh "$svc" "$IMAGE_PREFIX-$svc:$SHA"
+          done
+      - name: Smoke test
+        run: ./scripts/smoke.sh shop

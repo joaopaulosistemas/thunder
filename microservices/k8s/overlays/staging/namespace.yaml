@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shop-staging
+  annotations:
+    # Linkerd injeta o proxy sidecar e cifra (mTLS) todo trafego entre pods. Sem Linkerd instalado a
+    # anotacao e inofensiva. Instalacao: ver docs/PASSO-A-PASSO.md (etapa de mTLS).
+    linkerd.io/inject: enabled

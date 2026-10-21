@@ -1,0 +1,29 @@
+# OPCIONAL: escalar o backend por REQUISICOES por segundo (em vez de CPU) com KEDA.
+# Use no lugar do HPA "backend" de base/hpa.yaml (o KEDA cria o proprio HPA; nao deixe os dois).
+# Remova o HPA do backend do overlay antes de aplicar. Precisa de KEDA instalado e de um Prometheus
+# que colete o backend (k8s/observability/podmonitor.yaml).
+# Regra: cada copia deve segurar ~50 req/s; acima disso sobe, abaixo desce (nunca menos de 2).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: backend
+  namespace: shop
+spec:
+  scaleTargetRef:
+    name: backend
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - { type: Pods, value: 1, periodSeconds: 60 }
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        query: sum(rate(http_server_requests_seconds_count{namespace="shop",pod=~"backend-[0-9a-z]+-[0-9a-z]{5}",uri=~"/api.*"}[1m]))
+        threshold: "50"

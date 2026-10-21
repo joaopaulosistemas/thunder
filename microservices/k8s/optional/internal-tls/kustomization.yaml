@@ -1,0 +1,14 @@
+# Componente: TLS do servico ate o Kafka e o PostgreSQL (alem do mTLS pod a pod do Linkerd).
+# Usa segredos que voce (ou o External Secrets) cria:
+#   kafka-tls     : truststore.p12 (CA do Kafka em PKCS12) e password
+#   postgres-tls  : ca.crt (CA do PostgreSQL)
+# Aplicado por overlays/production-secure. Nao altera os servicos que ja rodam sem TLS.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - target: { kind: Deployment, name: catalog-service }
+    path: tls-patch-catalog.yaml
+  - target: { kind: Deployment, name: order-service }
+    path: tls-patch-order.yaml
+  - target: { kind: Deployment, name: notification-service }
+    path: tls-patch-notification.yaml

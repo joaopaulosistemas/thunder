@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: catalog-service
+  config:
+    import: classpath:shop-common.yml
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/catalog}
+  kafka:
+    consumer:
+      group-id: catalog-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      timeout: 200ms        # cache e opcional: se o Redis estiver lento, segue para o banco
+
+server:
+  port: 8080
+
+management:
+  health:
+    redis:
+      enabled: false        # Redis fora do ar nao derruba o readiness: o cache e so uma otimizacao
+  metrics:
+    tags:
+      application: catalog-service
+app:
+  cache:
+    product-ttl: ${PRODUCT_CACHE_TTL:PT60S}

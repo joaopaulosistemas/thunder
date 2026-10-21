@@ -1,0 +1,80 @@
+# Sobrescreve o docker-compose.yml para rodar em uma VM com DOMINIO PUBLICO e certificado automatico.
+#   1) DNS: DOMAIN e auth.DOMAIN apontando para o IP da VM; portas 80 e 443 liberadas no firewall.
+#   2) DOMAIN=... ACME_EMAIL=... infra/vm/render.sh        (gera realm, config do shell e senhas)
+#   3) docker compose --env-file infra/vm/generated/.env -f docker-compose.yml -f docker-compose.vm.yml up -d --build --wait
+# Requer Docker Compose v2.24 ou mais novo (usa !override). Keycloak segue em modo "start-dev" com banco
+# embutido: serve para demonstracao; em producao use "start" com um PostgreSQL proprio para o Keycloak.
+name: shop-microservices
+
+services:
+  # A borda nginx com certificado local sai de cena; entra o Caddy (Let's Encrypt)
+  edge:
+    profiles: ["local-tls"]
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?defina DOMAIN no .env}
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
+    volumes:
+      - ./infra/vm/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificados e chave da conta ACME: nao apague
+      - caddy_config:/config
+    depends_on:
+      - shell
+      - keycloak
+
+  shell:
+    volumes:
+      - ./infra/vm/generated/shell-config.json:/usr/share/nginx/html/config.json:ro
+
+  keycloak:
+    environment:
+      KC_HOSTNAME: https://auth.${DOMAIN:?defina DOMAIN no .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?defina KC_ADMIN_PASSWORD no .env}
+    volumes:
+      - ./infra/vm/generated/realm.json:/opt/keycloak/data/import/shop-realm.json:ro
+
+  gateway:
+    environment:
+      AUTH_ISSUER: https://auth.${DOMAIN}/realms/shop
+
+  catalog-service:
+    environment:
+      AUTH_ISSUER: https://auth.${DOMAIN}/realms/shop
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+
+  order-service:
+    environment:
+      AUTH_ISSUER: https://auth.${DOMAIN}/realms/shop
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+
+  notification-service:
+    environment:
+      AUTH_ISSUER: https://auth.${DOMAIN}/realms/shop
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+
+  # Paineis so no proprio servidor (acesse por tunel SSH: ssh -L 3000:localhost:3000 usuario@vm)
+  prometheus:
+    ports: !override
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?defina GRAFANA_PASSWORD no .env}
+    ports: !override
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  caddy_data:
+  caddy_config:

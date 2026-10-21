@@ -1,0 +1,25 @@
+spring:
+  cloud:
+    gateway:
+      default-filters:
+        - SecureHeaders
+      routes:
+        - id: backend-api
+          uri: http://localhost:1
+          predicates:
+            - Path=/api/**
+        - id: backend-docs
+          uri: http://localhost:1
+          predicates:
+            - Path=/v3/api-docs/**,/swagger-ui/**,/swagger-ui.html
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:1/jwks
+management:
+  tracing:
+    enabled: false
+  health:
+    redis:
+      enabled: false

@@ -1,0 +1,92 @@
+<main>
+  <header class="top">
+    <div>
+      <h1>Loja modular</h1>
+      <p class="sub">Angular + Spring Boot + PostgreSQL + Redis + Kafka + Keycloak</p>
+    </div>
+    <div class="who">
+      <strong>{{ auth.username() }}</strong>
+      <small>{{ auth.roles().join(', ') }}</small>
+      <button type="button" (click)="auth.logout()">Sair</button>
+    </div>
+  </header>
+
+  <section class="token">
+    <h2>Token</h2>
+    <p>
+      Navegador: usuario <code>{{ auth.username() }}</code>, expira em
+      <code>{{ auth.tokenExpiresAt() | date: 'mediumTime' }}</code> (renovado sozinho).
+    </p>
+    @if (backendView(); as seen) {
+      <p>
+        Backend enxergou: <code>{{ seen.username }}</code>, roles
+        <code>{{ seen.roles.join(', ') }}</code>
+      </p>
+    }
+  </section>
+
+  @if (auth.isAdmin() && summary(); as s) {
+    <section>
+      <h2>Painel admin</h2>
+      <p>{{ s.orders }} pedidos, receita {{ s.revenueCents / 100 | currency: 'BRL' }}</p>
+    </section>
+  }
+
+  <section>
+    <h2>Novo pedido</h2>
+    <form (ngSubmit)="order()">
+      <label>
+        Produto
+        <select name="product" [(ngModel)]="productId">
+          @for (p of products(); track p.id) {
+            <option [ngValue]="p.id">{{ p.name }} - {{ p.priceCents / 100 | currency: 'BRL' }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Quantidade
+        <input type="number" name="quantity" min="1" max="1000" [(ngModel)]="quantity" />
+      </label>
+      <button type="submit">Pedir</button>
+    </form>
+    @if (message()) {
+      <p class="ok" role="status">{{ message() }}</p>
+    }
+    @if (error()) {
+      <p class="err" role="alert">{{ error() }}</p>
+    }
+  </section>
+
+  <section>
+    <h2>Notificacoes (via Kafka)</h2>
+    @if (notifications().length === 0) {
+      <p>Nenhuma notificacao ainda.</p>
+    } @else {
+      <ul>
+        @for (n of notifications(); track n.orderId) {
+          <li>{{ n.message }}</li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section>
+    <h2>{{ auth.isAdmin() ? 'Ultimos pedidos (todos)' : 'Meus ultimos pedidos' }}</h2>
+    @if (orders().length === 0) {
+      <p>Nenhum pedido ainda.</p>
+    } @else {
+      <ul>
+        @for (o of orders(); track o.id) {
+          <li>
+            <strong>#{{ o.id }}</strong> {{ name(o.productId) }} x{{ o.quantity }}
+            - {{ o.totalCents / 100 | currency: 'BRL' }}
+            @if (auth.isAdmin()) {
+              <small>por {{ o.customer }}</small>
+            }
+            <small>{{ o.createdAt | date: 'short' }}</small>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</main>

@@ -1,0 +1,17 @@
+# Proxy HTTPS para uma VM com dominio publico. O Caddy pede e renova o certificado no Let's Encrypt
+# sozinho (desafio HTTP-01: as portas 80 e 443 da VM precisam estar abertas e o DNS apontando para ela).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy shell:80
+}
+
+auth.{$DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy keycloak:8080
+}

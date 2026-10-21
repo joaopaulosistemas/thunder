@@ -1,0 +1,181 @@
+# Canario por servico: um Deployment "<servico>-canary" ao lado do estavel, com 0 copias ate um release.
+# Os pods do canario e do estavel tem o mesmo label "app", entao o Service e a NetworkPolicy cobrem os
+# dois; o trafego se divide pela proporcao de copias (ex.: 1 canario para 9 estaveis = ~10%).
+# scripts/canary-service.sh sobe, observa o SLO e promove ou desfaz.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-service-canary
+  namespace: shop
+  labels: { app: catalog-service, track: canary }
+spec:
+  replicas: 0
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: catalog-service, track: canary }
+  template:
+    metadata:
+      labels: { app: catalog-service, track: canary }
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: catalog-service }
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: catalog-service }
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: catalog-service
+          image: ghcr.io/example/shop-catalog-service:latest
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef: { name: shop-config }
+          env:
+            - name: DB_URL
+              value: jdbc:postgresql://catalog-db:5432/catalog
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: db-catalog, key: username } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: db-catalog, key: password } }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 768Mi }
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 10
+            initialDelaySeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service-canary
+  namespace: shop
+  labels: { app: order-service, track: canary }
+spec:
+  replicas: 0
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: order-service, track: canary }
+  template:
+    metadata:
+      labels: { app: order-service, track: canary }
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: order-service }
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: order-service }
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: order-service
+          image: ghcr.io/example/shop-order-service:latest
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef: { name: shop-config }
+          env:
+            - name: DB_URL
+              value: jdbc:postgresql://orders-db:5432/orders
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: db-orders, key: username } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: db-orders, key: password } }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 768Mi }
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 10
+            initialDelaySeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service-canary
+  namespace: shop
+  labels: { app: notification-service, track: canary }
+spec:
+  replicas: 0
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: notification-service, track: canary }
+  template:
+    metadata:
+      labels: { app: notification-service, track: canary }
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: notification-service }
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: notification-service }
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: notification-service
+          image: ghcr.io/example/shop-notification-service:latest
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef: { name: shop-config }
+          env:
+            - name: DB_URL
+              value: jdbc:postgresql://notifications-db:5432/notifications
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: db-notifications, key: username } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: db-notifications, key: password } }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 768Mi }
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 10
+            initialDelaySeconds: 20

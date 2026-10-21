@@ -1,0 +1,16 @@
+<header class="top">
+  <strong class="brand">Loja</strong>
+  <nav aria-label="Módulos">
+    <a routerLink="/catalog" routerLinkActive="on">Catálogo</a>
+    <a routerLink="/orders" routerLinkActive="on">Pedidos</a>
+    <a routerLink="/notifications" routerLinkActive="on">Notificações</a>
+  </nav>
+  <div class="who">
+    <span>{{ auth.username() }}</span>
+    <span class="role">{{ auth.isAdmin() ? 'admin' : 'usuário' }}</span>
+    <button type="button" (click)="auth.logout()">Sair</button>
+  </div>
+</header>
+<main>
+  <router-outlet />
+</main>

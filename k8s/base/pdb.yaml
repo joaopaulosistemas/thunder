@@ -1,0 +1,32 @@
+# Garante disponibilidade durante manutencao: ao esvaziar um no (upgrade, scale-down de no, drain),
+# o Kubernetes nao derruba mais de uma copia por vez e so remove a proxima quando a anterior
+# ja foi substituida e esta pronta. (Aplica-se a remocoes voluntarias, nao a falhas de hardware.)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+  namespace: shop
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: { app: backend, track: stable }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway
+  namespace: shop
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: { app: gateway, track: stable }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend
+  namespace: shop
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: { app: frontend }

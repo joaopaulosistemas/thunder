@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: Shop API
+  version: 0.1.0
+  description: |
+    Contrato da API. E a fonte da verdade: o frontend gera seus tipos a partir deste
+    arquivo (`npm run gen:api`) e o backend tem um teste (ContractTest) que falha se os
+    endpoints implementados divergirem dele. Mude o contrato primeiro, depois o codigo.
+servers:
+  - url: http://localhost:8080
+security:
+  - bearer: []
+paths:
+  /api/products:
+    get:
+      operationId: listProducts
+      summary: Lista o catalogo
+      responses:
+        "200":
+          description: Produtos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/products/{id}:
+    get:
+      operationId: getProduct
+      summary: Busca um produto
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Produto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Produto nao encontrado
+  /api/orders:
+    get:
+      operationId: listOrders
+      summary: Ultimos pedidos (admin ve todos; usuario ve so os proprios)
+      responses:
+        "200":
+          description: Pedidos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createOrder
+      summary: Cria um pedido (o cliente vem do token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Pedido criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Dados invalidos
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Produto nao existe
+  /api/notifications:
+    get:
+      operationId: listNotifications
+      summary: Notificacoes geradas a partir dos eventos Kafka
+      responses:
+        "200":
+          description: Notificacoes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/me:
+    get:
+      operationId: me
+      summary: O que o backend enxergou no token
+      responses:
+        "200":
+          description: Identidade
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/admin/summary:
+    get:
+      operationId: adminSummary
+      summary: Resumo de pedidos e receita (somente admin)
+      responses:
+        "200":
+          description: Resumo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSummary"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Unauthorized:
+      description: Sem token ou token invalido
+    Forbidden:
+      description: Token valido, mas sem a role necessaria
+  schemas:
+    Product:
+      type: object
+      required: [id, sku, name, priceCents]
+      properties:
+        id: { type: integer, format: int64 }
+        sku: { type: string }
+        name: { type: string }
+        priceCents: { type: integer, format: int32 }
+    CreateOrderRequest:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId: { type: integer, format: int64 }
+        quantity: { type: integer, format: int32, minimum: 1, maximum: 1000 }
+    Order:
+      type: object
+      required: [id, productId, quantity, totalCents, customer, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        productId: { type: integer, format: int64 }
+        quantity: { type: integer, format: int32 }
+        totalCents: { type: integer, format: int64 }
+        customer: { type: string }
+        createdAt: { type: string, format: date-time }
+    Notification:
+      type: object
+      required: [orderId, customer, message]
+      properties:
+        orderId: { type: integer, format: int64 }
+        customer: { type: string }
+        message: { type: string }
+    Me:
+      type: object
+      required: [username, roles]
+      properties:
+        username: { type: string }
+        email: { type: string, nullable: true }
+        roles:
+          type: array
+          items: { type: string }
+    AdminSummary:
+      type: object
+      required: [orders, revenueCents]
+      properties:
+        orders: { type: integer, format: int64 }
+        revenueCents: { type: integer, format: int64 }

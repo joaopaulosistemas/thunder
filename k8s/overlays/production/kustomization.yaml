@@ -1,0 +1,8 @@
+# Producao: so recebe o que passou por staging e foi aprovado. O backend novo entra pelo
+# canario (scripts/canary.sh); este overlay cuida de tudo o mais.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shop
+resources:
+  - ../../base
+  - namespace.yaml

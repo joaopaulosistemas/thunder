@@ -1,0 +1,7 @@
+# Cada pasta tem donos; PRs exigem aprovacao dos donos (como OWNERS no monorepo do Google).
+*                    @example/platform
+/backend/            @example/backend-team
+/frontend/           @example/frontend-team
+/k8s/                @example/platform
+/observability/      @example/sre
+/docs/               @example/platform

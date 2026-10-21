@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:shop;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  cache:
+    type: simple
+  flyway:
+    enabled: true
+
+app:
+  events:
+    enabled: false
+
+management:
+  tracing:
+    enabled: false
+  health:
+    redis:
+      enabled: false

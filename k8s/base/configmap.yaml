@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shop-config
+  namespace: shop
+data:
+  # Em producao use servicos gerenciados (RDS/Cloud SQL, ElastiCache/Memorystore, MSK/Confluent)
+  DB_URL: jdbc:postgresql://postgres.shop.svc.cluster.local:5432/shop
+  APP_DATASOURCE_REPLICA_URL: jdbc:postgresql://postgres-replica.shop.svc.cluster.local:5432/shop
+  REDIS_HOST: redis.shop.svc.cluster.local
+  KAFKA_BOOTSTRAP: kafka.shop.svc.cluster.local:9092
+  OTEL_TRACES_ENDPOINT: http://tempo.observability.svc.cluster.local:4318/v1/traces
+  # Keycloak gerenciado/proprio: o issuer e o endereco PUBLICO (o mesmo que o navegador usa);
+  # as chaves podem vir pelo endereco interno do cluster.
+  AUTH_ISSUER: https://auth.example.com/realms/shop
+  AUTH_JWK_SET_URI: http://keycloak.auth.svc.cluster.local:8080/realms/shop/protocol/openid-connect/certs
+  AUTH_AUDIENCE: shop-api
+  RATE_LIMIT_RPS: "20"
+  RATE_LIMIT_BURST: "40"
+  EVENTS_ENABLED: "true"
+  FEATURES_BULK_DISCOUNT: "false"
+  TRACING_SAMPLING: "0.1"

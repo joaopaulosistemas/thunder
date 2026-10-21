@@ -1,0 +1,14 @@
+# Configuracao em runtime do Angular (montada como /config.json): permite usar a mesma
+# imagem em varios ambientes, mudando so a URL publica do Keycloak.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: shop
+data:
+  config.json: |
+    {
+      "keycloakUrl": "https://auth.example.com",
+      "realm": "shop",
+      "clientId": "shop-frontend"
+    }

@@ -1,0 +1,28 @@
+# Coleta as metricas do gateway e dos 3 microsservicos (o k8s/observability/podmonitor.yaml da raiz so
+# cobre o monolito: app=backend). Fica fora do base porque depende do CRD do Prometheus Operator.
+# Aplique uma vez: kubectl apply -f microservices/k8s/observability/podmonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: shop-microservices
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack   # ajuste para o label que o seu operator seleciona
+spec:
+  namespaceSelector:
+    matchNames: [shop, shop-staging]
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [gateway, catalog-service, order-service, notification-service]
+  podMetricsEndpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 15s
+      relabelings:
+        # Mesmos rotulos do compose: as regras e os paineis agregam por "service" e usam job="shop"
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: service
+        - targetLabel: job
+          replacement: shop

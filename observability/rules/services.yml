@@ -1,0 +1,62 @@
+# Observabilidade POR SERVICO (alem do SLO global em slo.yml): cada servico tem sua taxa de erro,
+# latencia, fila do outbox, mensagens na DLT e atraso de consumo. O rotulo "service" vem do
+# prometheus.yml (compose) ou do PodMonitor (Kubernetes, a partir do label app).
+groups:
+  - name: shop-service-sli
+    rules:
+      - record: service:http_error_ratio:rate5m
+        expr: |
+          sum by (service) (rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*",status=~"5.."}[5m]))
+          / sum by (service) (rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*"}[5m]))
+      - record: service:http_error_ratio:rate1h
+        expr: |
+          sum by (service) (rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*",status=~"5.."}[1h]))
+          / sum by (service) (rate(http_server_requests_seconds_count{job="shop",uri=~"/api.*"}[1h]))
+      - record: service:http_latency_p99:rate5m
+        expr: |
+          histogram_quantile(0.99, sum by (service, le) (rate(http_server_requests_seconds_bucket{job="shop",uri=~"/api.*"}[5m])))
+
+  - name: shop-service-alerts
+    rules:
+      - alert: ServiceErrorBudgetBurnFast
+        expr: service:http_error_ratio:rate5m > (14.4 * 0.001) and service:http_error_ratio:rate1h > (14.4 * 0.001)
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.service }}: orcamento de erro (99,9%) sendo consumido 14x mais rapido"
+          action: "Reverter o ultimo release deste servico (canario por servico) e abrir incidente"
+      - alert: ServiceLatencyHigh
+        expr: service:http_latency_p99:rate5m > 1
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "{{ $labels.service }}: p99 acima de 1 s por 10 minutos"
+          action: "Ver o painel Shop - Servicos (latencia, JVM) e os traces no Tempo"
+      - alert: OutboxBacklog
+        expr: max by (service) (shop_outbox_pending) > 100
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.service }}: mais de 100 eventos esperando para ir ao Kafka"
+          action: "Kafka fora do ar ou relay parado. Os dados estao seguros no banco; os eventos saem quando o Kafka voltar"
+      - alert: DeadLetterGrowing
+        expr: sum by (service, topic) (increase(shop_dlt_messages_total[10m])) > 0
+        for: 0m
+        labels: { severity: ticket }
+        annotations:
+          summary: "{{ $labels.service }}: mensagens do topico {{ $labels.topic }} foram para a DLT"
+          action: "Ver o erro nos logs, corrigir a causa e reprocessar o topico .DLT"
+      - alert: KafkaConsumerLagHigh
+        expr: max by (service) (kafka_consumer_fetch_manager_records_lag_max) > 1000
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "{{ $labels.service }}: consumidor Kafka atrasado em mais de 1000 mensagens"
+          action: "Escalar o servico (HPA, ate o numero de particoes) ou investigar consumo lento"
+      - alert: OrdersStuckPending
+        expr: max(shop_orders_pending) > 20
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "Mais de 20 pedidos PENDING ha 5 minutos: a saga pode estar travada"
+          action: "Checar catalog-service, o topico orders.created e a DLT. O reaper recusa pedidos apos o timeout"

@@ -1,0 +1,40 @@
+# OPCIONAL, AWS/EKS + Karpenter v1: elasticidade dos NOS (as maquinas).
+# O HPA cria/remove pods; quando faltam maquinas o Karpenter cria uma, e quando ha maquinas
+# vazias ou subutilizadas ele as consolida e DESLIGA. E isso que faz o cluster encolher quando
+# ha pouca chamada. Substitua os placeholders (<...>) pelos do seu cluster antes de aplicar.
+# Alternativa sem Karpenter: Cluster Autoscaler com um node group (min 2, max N) em 2 ou 3 zonas.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: shop
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: shop
+      requirements:
+        - { key: kubernetes.io/arch, operator: In, values: ["amd64"] }
+        - { key: karpenter.sh/capacity-type, operator: In, values: ["on-demand"] }
+        - { key: karpenter.k8s.aws/instance-category, operator: In, values: ["c", "m"] }
+        - { key: karpenter.k8s.aws/instance-generation, operator: Gt, values: ["4"] }
+      expireAfter: 720h
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 2m
+  limits:
+    cpu: "40"          # teto de custo: no maximo 40 vCPU no total
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: shop
+spec:
+  amiSelectorTerms:
+    - alias: al2023@latest
+  role: <nome-da-role-dos-nos>
+  subnetSelectorTerms:
+    - tags: { karpenter.sh/discovery: <nome-do-cluster> }
+  securityGroupSelectorTerms:
+    - tags: { karpenter.sh/discovery: <nome-do-cluster> }

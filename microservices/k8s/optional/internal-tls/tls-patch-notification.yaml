@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+spec:
+  template:
+    spec:
+      volumes:
+        - name: kafka-tls
+          secret: { secretName: kafka-tls }
+        - name: postgres-tls
+          secret: { secretName: postgres-tls }
+      containers:
+        - name: notification-service
+          volumeMounts:
+            - { name: kafka-tls, mountPath: /etc/tls/kafka, readOnly: true }
+            - { name: postgres-tls, mountPath: /etc/tls/pg, readOnly: true }
+          env:
+            # Kafka por TLS (relaxed binding do Spring: SPRING_KAFKA_* vira spring.kafka.*)
+            - { name: SPRING_KAFKA_SECURITY_PROTOCOL, value: SSL }
+            - { name: SPRING_KAFKA_SSL_TRUST_STORE_LOCATION, value: "file:/etc/tls/kafka/truststore.p12" }
+            - { name: SPRING_KAFKA_SSL_TRUST_STORE_TYPE, value: PKCS12 }
+            - name: SPRING_KAFKA_SSL_TRUST_STORE_PASSWORD
+              valueFrom: { secretKeyRef: { name: kafka-tls, key: password } }
+            # PostgreSQL por TLS, validando o certificado e o nome do servidor
+            - { name: DB_SSLMODE, value: verify-full }
+            - { name: DB_SSLROOTCERT, value: /etc/tls/pg/ca.crt }

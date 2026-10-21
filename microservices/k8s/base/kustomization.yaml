@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - canary-services.yaml
+  - catalog-service.yaml
+  - configmap.yaml
+  - gateway.yaml
+  - ingress.yaml
+  - mfe-catalog.yaml
+  - mfe-notifications.yaml
+  - mfe-orders.yaml
+  - networkpolicy.yaml
+  - notification-service.yaml
+  - order-service.yaml
+  - shell.yaml

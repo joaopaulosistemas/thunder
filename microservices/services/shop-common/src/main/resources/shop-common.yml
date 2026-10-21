@@ -1,0 +1,82 @@
+# Configuracao comum a todos os microsservicos. Cada servico a importa em seu application.yml.
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    username: ${DB_USER:shop}
+    password: ${DB_PASSWORD:shop}
+    hikari:
+      data-source-properties:
+        # TLS com o PostgreSQL: DB_SSLMODE=verify-full exige certificado valido e nome correto.
+        # O padrao "prefer" mantem o comportamento do desenvolvimento local (sem TLS obrigatorio).
+        sslmode: ${DB_SSLMODE:prefer}
+        sslrootcert: ${DB_SSLROOTCERT:/etc/ssl/certs/ca-certificates.crt}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri valida o "iss"; as chaves vem de jwk-set-uri (dentro do Docker o servico
+          # alcanca o Keycloak por outro host que o navegador).
+          issuer-uri: ${AUTH_ISSUER:http://localhost:8180/realms/shop}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8180/realms/shop/protocol/openid-connect/certs}
+          audiences: ${AUTH_AUDIENCE:shop-api}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      auto-offset-reset: earliest
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+
+app:
+  outbox:
+    poll-ms: 500
+    batch-size: 50
+  kafka:
+    replicas: ${KAFKA_TOPIC_REPLICAS:1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:ecs}
+
+server:
+  shutdown: graceful
+
+# Contrato OpenAPI de cada servico em /v3/api-docs (a interface Swagger fica desligada por padrao).
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SWAGGER_UI:false}

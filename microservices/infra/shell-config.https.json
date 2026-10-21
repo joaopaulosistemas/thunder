@@ -1,0 +1,5 @@
+{
+  "keycloakUrl": "https://localhost:8444",
+  "realm": "shop",
+  "clientId": "shop-frontend"
+}

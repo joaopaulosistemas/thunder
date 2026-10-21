@@ -1,0 +1,79 @@
+# Rede em "negar por padrao" (apenas ENTRADA). Sem isso qualquer pod do cluster chegaria direto aos
+# microsservicos, pulando o gateway. Cada servico ainda valida o JWT; isto e a segunda camada.
+# Requer um CNI que aplique NetworkPolicy (Calico, Cilium, Antrea). Sem ele a regra e ignorada.
+# Banco, Kafka e Redis ficam fora do namespace: a saida nao e restrita aqui.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Ingress controller -> shell (app e microfrontends) e gateway (/api)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-controller
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [shell, gateway] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+      ports:
+        - { port: http, protocol: TCP }
+---
+# shell -> microfrontends e gateway (o nginx do shell serve /mfe/* e repassa /api)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-shell-upstreams
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [mfe-catalog, mfe-orders, mfe-notifications, gateway] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: shell }
+      ports:
+        - { port: http, protocol: TCP }
+---
+# gateway -> microsservicos (unico caminho para a API)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-to-services
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [catalog-service, order-service, notification-service] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: gateway }
+      ports:
+        - { port: http, protocol: TCP }
+---
+# Prometheus (namespace monitoring) -> metricas de gateway e servicos
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [gateway, catalog-service, order-service, notification-service] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: monitoring }
+      ports:
+        - { port: http, protocol: TCP }
