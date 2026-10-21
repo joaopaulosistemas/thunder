@@ -14,6 +14,8 @@ services:
   # navegador e para o backend (que busca as chaves por http://keycloak:8080).
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.7
+    # Sem volume para o H2: o volume nomeado nascia de root e o Keycloak (usuario nao-root) nao conseguia
+    # escrever (AccessDeniedException, achado pelo CI). O realm e importado a cada subida; dados nao persistem.
     command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -24,7 +26,6 @@ services:
       KC_HEALTH_ENABLED: "true"
     volumes:
       - ./infra/keycloak/shop-realm.json:/opt/keycloak/data/import/shop-realm.json:ro
-      - keycloakdata:/opt/keycloak/data/h2
     ports:
       - "8180:8080"
     healthcheck:
@@ -225,4 +226,3 @@ services:
 volumes:
   pgdata:
   pgreplica:
-  keycloakdata:
