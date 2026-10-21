@@ -77,7 +77,9 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
-          build-args: ${{ matrix.args }}
+          build-args: |
+            ${{ matrix.args }}
+            GIT_SHA=${{ steps.vars.outputs.sha }}
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/shop-${{ matrix.app }}:${{ steps.vars.outputs.sha }}
 
