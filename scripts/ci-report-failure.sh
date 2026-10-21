@@ -17,6 +17,13 @@ MAX=60000
   # Erros do Maven, testes que falharam e causas (Caused by), sem repetir linhas identicas em sequencia
   grep -E '^\[ERROR\]|Tests run:.*(FAIL|ERROR)|Caused by:|^npm (error|ERR)|^Error:|FAILED|error TS[0-9]+' "$LOG" | uniq | head -n 200
   echo '```'
+  if [ "${TAIL_LINES:-0}" -gt 0 ]; then
+    echo
+    echo "Final do log (${TAIL_LINES} linhas):"
+    echo '```'
+    tail -n "${TAIL_LINES}" "$LOG"
+    echo '```'
+  fi
 } | head -c "$MAX" > /tmp/ci-report.md
 
 gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" -f body="$(cat /tmp/ci-report.md)" > /dev/null
