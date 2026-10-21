@@ -2,7 +2,8 @@
   <header class="top">
     <div>
       <h1>Loja modular</h1>
-      <p class="sub">Angular + Spring Boot + PostgreSQL + Redis + Kafka + Keycloak</p>
+      <p class="sub">Angular + Spring Boot + PostgreSQL + Redis + Kafka + Keycloak
+        · <span class="version" [attr.title]="'Build de ' + builtAt" data-testid="app-version">{{ version }}</span></p>
     </div>
     <div class="who">
       <strong>{{ auth.username() }}</strong>
