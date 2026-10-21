@@ -1,4 +1,4 @@
-FROM node:22 AS build
+FROM node:25 AS build
 ARG GIT_SHA=dev
 WORKDIR /app
 COPY package.json package-lock.json ./
