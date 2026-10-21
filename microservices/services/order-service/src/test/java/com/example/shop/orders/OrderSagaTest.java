@@ -81,16 +81,18 @@ class OrderSagaTest {
     }
 
     @Test
-    void pedidoJaDecididoNaoMudaDeNovo() {
+    void pedidoJaConfirmadoNaoMudaDeNovoENaoGeraEvento() {
+        // Reserva repetida (evento diferente) para um pedido ja CONFIRMADO: nada a fazer.
+        // Pedido CANCELADO ou RECUSADO e outro caso: a reserva fica presa e e devolvida (testes de reserva tardia).
         Order order = pending();
-        order.reject();
+        order.confirm();
         StockReserved event = new StockReserved(UUID.randomUUID(), Instant.now(), 42L);
         when(inbox.firstTime(any(), any())).thenReturn(true);
         when(orders.findById(42L)).thenReturn(Optional.of(order));
 
         saga.onStockReserved(event);
 
-        assertThat(order.getStatus()).isEqualTo(OrderStatus.REJECTED);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         verify(outbox, never()).append(any(), any(), any());
     }
 

@@ -1,6 +1,6 @@
 # Code Review: microsserviços (`microservices/services`)
 
-Feito com a skill `engineering:code-review` em 2026-10-20. **Leitura do código, sem compilar nem executar nada** (Maven Central bloqueado).
+Feito com a skill `engineering:code-review` em 2026-10-20. **Feita por leitura do código. Depois, o CI do GitHub compilou e executou tudo (commit b62b144, verde):** ver `docs/DIVIDA-TECNICA.md`.
 Cobri: segurança (`SecurityConfig`, controllers), outbox/inbox, saga, reaper, catálogo (busca, cache, estoque), tratamento de erros.
 Não cobri linha a linha: `notification-service`, mapeamentos JPA de `Product`/`Category`, o gateway e o módulo `order-workflow`.
 
