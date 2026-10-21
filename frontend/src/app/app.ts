@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminSummary, ApiService, Me, Notification, Order, Product } from './api.service';
 import { AuthService } from './auth/auth.service';
+import { APP_BUILT_AT, APP_COMMIT, APP_VERSION } from './version';
 
 @Component({
   selector: 'app-root',
@@ -13,6 +14,8 @@ import { AuthService } from './auth/auth.service';
 export class App implements OnInit {
   private readonly api = inject(ApiService);
   protected readonly auth = inject(AuthService);
+  protected readonly version = `v${APP_VERSION} · ${APP_COMMIT}`;
+  protected readonly builtAt = APP_BUILT_AT;
 
   protected readonly products = signal<Product[]>([]);
   protected readonly orders = signal<Order[]>([]);

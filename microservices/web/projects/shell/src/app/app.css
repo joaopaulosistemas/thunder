@@ -34,3 +34,5 @@ button {
   cursor: pointer;
 }
 main { max-width: 960px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+.version { color: var(--muted, #666); font-variant-numeric: tabular-nums; white-space: nowrap; }
