@@ -6,6 +6,7 @@
     <a routerLink="/notifications" routerLinkActive="on">Notificações</a>
   </nav>
   <div class="who">
+    <small class="version" [attr.title]="'Build de ' + builtAt" data-testid="app-version">{{ version }}</small>
     <span>{{ auth.username() }}</span>
     <span class="role">{{ auth.isAdmin() ? 'admin' : 'usuário' }}</span>
     <button type="button" (click)="auth.logout()">Sair</button>
