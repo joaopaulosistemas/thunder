@@ -231,7 +231,15 @@ jobs:
         run: |
           npm ci || npm install
           npx playwright install --with-deps chromium
-          npx playwright test -c playwright.ms.config.ts
+          set -o pipefail
+          npx playwright test -c playwright.ms.config.ts 2>&1 | tee "$RUNNER_TEMP/pw.log"
+      - name: Resumo da falha do Playwright no commit
+        if: failure() && github.event_name == 'push' && hashFiles(format('{0}/pw.log', runner.temp)) != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAIL_LINES: "80"
+        run: |
+          scripts/ci-report-failure.sh "$RUNNER_TEMP/pw.log" "e2e - microsservicos - Playwright"
       - name: Logs em caso de falha
         if: failure()
         run: docker compose -f microservices/docker-compose.yml logs --no-color | tail -n 300
