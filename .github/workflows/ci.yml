@@ -8,6 +8,8 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # so para comentar o resumo da falha no commit (scripts/ci-report-failure.sh)
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     defaults:
@@ -23,7 +25,15 @@ jobs:
           java-version: "21"
           cache: maven
       # Unitarios + contrato HTTP + arquitetura (ArchUnit) + cobertura (JaCoCo)
-      - run: mvn -B verify
+      - name: Testes (mvn verify)
+        run: |
+          set -o pipefail
+          mvn -B verify 2>&1 | tee "$RUNNER_TEMP/mvn.log"
+      - name: Resumo da falha no commit
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ../scripts/ci-report-failure.sh "$RUNNER_TEMP/mvn.log" backend
       # Analise estatica no SonarQube (so roda se o segredo existir)
       - name: SonarQube
         if: ${{ env.SONAR_TOKEN != '' }}
@@ -52,6 +62,8 @@ jobs:
   services:
     # Versao microsservicos: contratos, infra comum (outbox/inbox) e os 3 servicos
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: microservices/services
@@ -63,7 +75,15 @@ jobs:
           java-version: "21"
           cache: maven
       # Roda os *Test (surefire) e os *IT com Postgres e Kafka reais (failsafe, precisa de Docker)
-      - run: mvn -B verify
+      - name: Testes (mvn verify)
+        run: |
+          set -o pipefail
+          mvn -B verify 2>&1 | tee "$RUNNER_TEMP/mvn.log"
+      - name: Resumo da falha no commit
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ../../scripts/ci-report-failure.sh "$RUNNER_TEMP/mvn.log" services
       - name: Relatorios de teste
         if: always()
         uses: actions/upload-artifact@v4
