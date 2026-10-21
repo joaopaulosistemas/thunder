@@ -4,9 +4,9 @@ Gerado com a skill `engineering:tech-debt` em 2026-10-20. Prioridade = (Impacto 
 
 | # | Item | Tipo | Impacto | Risco | Esforço | Prioridade | Correção |
 |---|---|---|---|---|---|---|---|
-| 1 | Nenhum Java foi compilado nem testado; ~47 métodos de teste nunca rodaram | Teste | 5 | 5 | 1 | 50 | Rodar `mvn verify` em `microservices/services` (e corrigir). Achei um bug de transação só lendo o código; deve haver mais. |
+| 1 | ~~Nenhum Java foi compilado nem testado~~ RESOLVIDO: o CI do GitHub roda `mvn verify` (commit b62b144, tudo verde) | Teste | 5 | 5 | 1 | 50 | Rodar `mvn verify` em `microservices/services` (e corrigir). Achei um bug de transação só lendo o código; deve haver mais. |
 | 2 | Métrica de lag do Kafka e springdoc 2.8.6 não confirmados | Dependência | 3 | 3 | 1 | 30 | Conferir no primeiro ambiente real e ajustar regra/versão. |
-| 3 | Microsserviços sem teste de integração (Postgres e Kafka reais) | Teste | 5 | 4 | 3 | 27 | ESCRITOS (`OrderFlowIT`, `CatalogFlowIT`), falta executar. Cobrem saga, timeout, cancelamento, outbox e busca. |
+| 3 | Microsserviços sem teste de integração (Postgres e Kafka reais) | Teste | 5 | 4 | 3 | 27 | FEITO e verde no CI (`OrderFlowIT`, `CatalogFlowIT`). Cobrem saga, timeout, cancelamento, outbox e busca. |
 | 4 | Keycloak da VM em `start-dev`, sem alta disponibilidade | Infra | 3 | 5 | 3 | 24 | Modo `start` com banco próprio e proxy configurado. |
 | 5 | Contratos por arquivo JSON, sem Pact nem checagem de drift do OpenAPI | Teste | 3 | 3 | 3 | 18 | Gerar o OpenAPI no CI e comparar com o arquivo versionado. |
 | 6 | Dois sistemas no mesmo repositório (monólito e microsserviços) com nomes e namespaces iguais | Arquitetura | 4 | 4 | 4 | 16 | Escolher um por cluster (ADR 0005 pede isso) e arquivar o outro, ou separar os repositórios. |
@@ -25,3 +25,6 @@ Gerado com a skill `engineering:tech-debt` em 2026-10-20. Prioridade = (Impacto 
 
 ## Achados da revisão de código (ver `docs/CODE-REVIEW.md`)
 Feitos: índice `pg_trgm` para a busca e versão no evento `ProductChanged`. Em aberto: porta de gerenciamento separada para `/actuator` (mexe em probes, Prometheus e NetworkPolicy; precisa de ambiente para testar).
+
+## Achados reais do CI (ciclos 1 a 5)
+Jar do monólito sem `jackson-dataformat-yaml` (escopo test escondia a dependência do springdoc); nginx do shell servindo chunks dos microfrontends como 404 (faltava `^~`); volume H2 do Keycloak sem permissão; testes com `assertThat` ambíguo, `jwt()` duplicado, métricas desligadas em teste e `OrderSagaTest` desatualizado. Nenhum deles aparecia sem executar a stack.

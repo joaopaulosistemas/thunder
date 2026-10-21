@@ -126,8 +126,10 @@ class OrderFlowIT {
 
             assertThat(second).isFalse(); // a primeira transacao ainda segura o lock
             release.countDown();
-            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
-            assertThat(tx.execute(status -> outbox.tryBecomePublisher())).isTrue(); // liberado ao commit
+            Boolean firstResult = first.get(10, TimeUnit.SECONDS);
+            assertThat(firstResult).isTrue();
+            Boolean third = tx.execute(status -> outbox.tryBecomePublisher());
+            assertThat(third).isTrue(); // liberado ao commit
         } finally {
             release.countDown();
             pool.shutdownNow();
