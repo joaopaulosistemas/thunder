@@ -47,6 +47,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: frontend
+          build-args: GIT_SHA=${{ steps.vars.outputs.sha }}
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}:${{ steps.vars.outputs.sha }}
       - uses: docker/build-push-action@v6
