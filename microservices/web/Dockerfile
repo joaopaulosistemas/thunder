@@ -3,11 +3,13 @@
 #   docker build --build-arg APP=mfe-orders --build-arg CONF=nginx.remote.conf -t shop-mfe-orders .
 FROM node:22-alpine AS build
 ARG APP
+ARG GIT_SHA=dev
 WORKDIR /w
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npx ng build ${APP} \
+RUN GIT_SHA=${GIT_SHA} node scripts/gen-version.mjs projects/shell/src/app/version.ts \
+ && npx ng build ${APP} \
  && if [ -f dist/${APP}/browser/federation.manifest.prod.json ]; then \
       mv dist/${APP}/browser/federation.manifest.prod.json dist/${APP}/browser/federation.manifest.json; \
     fi

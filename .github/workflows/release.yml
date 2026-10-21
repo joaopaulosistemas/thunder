@@ -29,7 +29,7 @@ jobs:
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - id: vars
@@ -47,6 +47,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: frontend
+          build-args: GIT_SHA=${{ steps.vars.outputs.sha }}
           push: true
           tags: ${{ env.FRONTEND_IMAGE }}:${{ steps.vars.outputs.sha }}
       - uses: docker/build-push-action@v6
@@ -60,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
       - name: Configura o kubectl
@@ -84,7 +85,7 @@ jobs:
     # Configure em Settings > Environments > production: revisores obrigatorios (aprovacao manual)
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
       - name: Configura o kubectl

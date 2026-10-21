@@ -10,15 +10,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** Contrato de seguranca: quem entra, com qual role, e o que cada um enxerga. */
 @SpringBootTest
 @AutoConfigureMockMvc
+// Em testes o Spring Boot desliga a exportacao de metricas: sem isto /actuator/prometheus responde 404
+@AutoConfigureObservability
 @ActiveProfiles("test")
 class SecurityTest {
 
@@ -74,7 +78,10 @@ class SecurityTest {
 
     @Test
     void meEndpointExposesWhatTheBackendSawInTheToken() throws Exception {
-        mvc.perform(get("/api/me").with(admin("bob").jwt(j -> j.claim("email", "bob@example.com"))))
+        // Um unico .jwt(...): chamar .jwt() de novo substitui o anterior e perderia subject e preferred_username
+        var bob = jwt().jwt(j -> j.subject("bob").claim("preferred_username", "bob").claim("email", "bob@example.com"))
+                .authorities(new SimpleGrantedAuthority("ROLE_user"), new SimpleGrantedAuthority("ROLE_admin"));
+        mvc.perform(get("/api/me").with(bob))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("bob"))
                 .andExpect(jsonPath("$.email").value("bob@example.com"))
