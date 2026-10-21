@@ -25,10 +25,10 @@ jobs:
       run:
         working-directory: microservices/services
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -36,7 +36,7 @@ jobs:
       - run: mvn -B verify
       - name: Relatorios de teste
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: relatorios-de-teste
           path: |
@@ -64,7 +64,7 @@ jobs:
           - { app: mfe-notifications,    context: microservices/web, args: "APP=mfe-notifications\nCONF=nginx.remote.conf" }
           - { app: gateway,              context: gateway, args: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
       - id: vars
@@ -77,7 +77,9 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
-          build-args: ${{ matrix.args }}
+          build-args: |
+            ${{ matrix.args }}
+            GIT_SHA=${{ steps.vars.outputs.sha }}
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/shop-${{ matrix.app }}:${{ steps.vars.outputs.sha }}
 
@@ -86,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
       - name: Configura o kubectl
@@ -108,7 +110,7 @@ jobs:
     # Settings > Environments > production: revisores obrigatorios (aprovacao manual)
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
       - name: Configura o kubectl

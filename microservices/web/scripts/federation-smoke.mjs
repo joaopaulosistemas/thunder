@@ -57,6 +57,7 @@ async function newPage(roles) {
   });
   await page.goto(BASE);
   await page.getByRole('heading', { name: 'Catálogo' }).waitFor({ timeout: 20000 });
+  check('shell mostra a versão do build', /^v\d+\.\d+\.\d+ · \S+$/.test((await page.getByTestId('app-version').textContent())?.trim() ?? ''));
   check('shell carrega mfe-catalog (rota /catalog)', await page.getByText('Teclado mecânico').isVisible());
   check('usuário comum não vê "Novo produto" nem "Editar"', (await page.getByRole('button', { name: 'Novo produto' }).count()) === 0 && (await page.getByRole('button', { name: /Editar/ }).count()) === 0);
   await page.getByRole('link', { name: 'Pedidos' }).click();
