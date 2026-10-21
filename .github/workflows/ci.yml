@@ -171,13 +171,26 @@ jobs:
   e2e:
     needs: [backend, gateway, frontend]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - name: Sobe a stack (Keycloak, Kafka, Postgres, backend, frontend)
-        run: docker compose up -d --build --wait
+        run: |
+          set -o pipefail
+          docker compose up -d --build --wait 2>&1 | tee "$RUNNER_TEMP/stack.log"
+      - name: Resumo da falha da stack no commit
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAIL_LINES: "120"
+        run: |
+          docker compose ps -a >> "$RUNNER_TEMP/stack.log" 2>&1 || true
+          docker compose logs --no-color --tail=60 >> "$RUNNER_TEMP/stack.log" 2>&1 || true
+          scripts/ci-report-failure.sh "$RUNNER_TEMP/stack.log" "e2e (monolito): stack nao subiu"
       - name: Playwright
         working-directory: e2e
         run: |
@@ -191,6 +204,8 @@ jobs:
   e2e-microservices:
     needs: [services, web]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -199,13 +214,32 @@ jobs:
       - name: Certificados locais
         run: microservices/infra/tls/gen-certs.sh
       - name: Sobe a stack de microsservicos
-        run: docker compose -f microservices/docker-compose.yml up -d --build --wait
+        run: |
+          set -o pipefail
+          docker compose -f microservices/docker-compose.yml up -d --build --wait 2>&1 | tee "$RUNNER_TEMP/stack.log"
+      - name: Resumo da falha da stack no commit
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAIL_LINES: "120"
+        run: |
+          docker compose -f microservices/docker-compose.yml ps -a >> "$RUNNER_TEMP/stack.log" 2>&1 || true
+          docker compose -f microservices/docker-compose.yml logs --no-color --tail=60 >> "$RUNNER_TEMP/stack.log" 2>&1 || true
+          scripts/ci-report-failure.sh "$RUNNER_TEMP/stack.log" "e2e (microsservicos): stack nao subiu"
       - name: Playwright (HTTPS, Keycloak, saga Kafka)
         working-directory: e2e
         run: |
           npm ci || npm install
           npx playwright install --with-deps chromium
-          npx playwright test -c playwright.ms.config.ts
+          set -o pipefail
+          npx playwright test -c playwright.ms.config.ts 2>&1 | tee "$RUNNER_TEMP/pw.log"
+      - name: Resumo da falha do Playwright no commit
+        if: failure() && github.event_name == 'push' && hashFiles(format('{0}/pw.log', runner.temp)) != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAIL_LINES: "80"
+        run: |
+          scripts/ci-report-failure.sh "$RUNNER_TEMP/pw.log" "e2e - microsservicos - Playwright"
       - name: Logs em caso de falha
         if: failure()
         run: docker compose -f microservices/docker-compose.yml logs --no-color | tail -n 300
