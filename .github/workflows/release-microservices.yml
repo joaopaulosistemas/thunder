@@ -87,21 +87,29 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: staging
+    env:
+      # Sem o segredo do cluster, o deploy e pulado (em vez de falhar o release)
+      HAS_KUBE: ${{ secrets.KUBE_CONFIG_STAGING != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
-      - name: Configura o kubectl
+      - if: env.HAS_KUBE != 'true'
+        run: echo '::notice::KUBE_CONFIG_STAGING nao configurado, deploy em staging ignorado'
+      - if: env.HAS_KUBE == 'true'
+        name: Configura o kubectl
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
         run: |
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-      - name: Deploy em staging
+      - if: env.HAS_KUBE == 'true'
+        name: Deploy em staging
         env:
           OWNER: ${{ github.repository_owner }}
         run: ./scripts/deploy-microservices.sh staging "${{ needs.publish.outputs.sha }}"
-      - name: Smoke test
+      - if: env.HAS_KUBE == 'true'
+        name: Smoke test
         run: ./scripts/smoke.sh shop-staging
 
   production:
@@ -109,21 +117,29 @@ jobs:
     runs-on: ubuntu-latest
     # Settings > Environments > production: revisores obrigatorios (aprovacao manual)
     environment: production
+    env:
+      # Sem o segredo do cluster, o deploy e pulado (em vez de falhar o release)
+      HAS_KUBE: ${{ secrets.KUBE_CONFIG != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
-      - name: Configura o kubectl
+      - if: env.HAS_KUBE != 'true'
+        run: echo '::notice::KUBE_CONFIG nao configurado, deploy em production ignorado'
+      - if: env.HAS_KUBE == 'true'
+        name: Configura o kubectl
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-      - name: Config e microfrontends (os 3 servicos permanecem na versao atual)
+      - if: env.HAS_KUBE == 'true'
+        name: Config e microfrontends (os 3 servicos permanecem na versao atual)
         env:
           OWNER: ${{ github.repository_owner }}
         run: ./scripts/deploy-microservices.sh production "${{ needs.publish.outputs.sha }}"
-      - name: Canario por servico (10% > 25% > 50%, rollback por SLO)
+      - if: env.HAS_KUBE == 'true'
+        name: Canario por servico (10% > 25% > 50%, rollback por SLO)
         env:
           PROM_URL: ${{ secrets.PROM_URL }}
           IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/shop
@@ -132,5 +148,6 @@ jobs:
           for svc in catalog-service order-service notification-service; do
             ./scripts/canary-service.sh "$svc" "$IMAGE_PREFIX-$svc:$SHA"
           done
-      - name: Smoke test
+      - if: env.HAS_KUBE == 'true'
+        name: Smoke test
         run: ./scripts/smoke.sh shop

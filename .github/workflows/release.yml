@@ -60,23 +60,31 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: staging
+    env:
+      # Sem o segredo do cluster, o deploy e pulado (em vez de falhar o release)
+      HAS_KUBE: ${{ secrets.KUBE_CONFIG_STAGING != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
-      - name: Configura o kubectl
+      - if: env.HAS_KUBE != 'true'
+        run: echo '::notice::KUBE_CONFIG_STAGING nao configurado, deploy em staging ignorado'
+      - if: env.HAS_KUBE == 'true'
+        name: Configura o kubectl
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
         run: |
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-      - name: Deploy em staging
+      - if: env.HAS_KUBE == 'true'
+        name: Deploy em staging
         run: >
           ./scripts/deploy.sh staging
           ${{ env.BACKEND_IMAGE }}:${{ needs.publish.outputs.sha }}
           ${{ env.FRONTEND_IMAGE }}:${{ needs.publish.outputs.sha }}
           ${{ env.GATEWAY_IMAGE }}:${{ needs.publish.outputs.sha }}
-      - name: Smoke test
+      - if: env.HAS_KUBE == 'true'
+        name: Smoke test
         run: ./scripts/smoke.sh shop-staging
 
   production:
@@ -84,25 +92,34 @@ jobs:
     runs-on: ubuntu-latest
     # Configure em Settings > Environments > production: revisores obrigatorios (aprovacao manual)
     environment: production
+    env:
+      # Sem o segredo do cluster, o deploy e pulado (em vez de falhar o release)
+      HAS_KUBE: ${{ secrets.KUBE_CONFIG != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.publish.outputs.sha }}
-      - name: Configura o kubectl
+      - if: env.HAS_KUBE != 'true'
+        run: echo '::notice::KUBE_CONFIG nao configurado, deploy em production ignorado'
+      - if: env.HAS_KUBE == 'true'
+        name: Configura o kubectl
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-      - name: Config e frontend (backend permanece na versao atual)
+      - if: env.HAS_KUBE == 'true'
+        name: Config e frontend (backend permanece na versao atual)
         run: >
           ./scripts/deploy.sh production
           ${{ env.BACKEND_IMAGE }}:${{ needs.publish.outputs.sha }}
           ${{ env.FRONTEND_IMAGE }}:${{ needs.publish.outputs.sha }}
           ${{ env.GATEWAY_IMAGE }}:${{ needs.publish.outputs.sha }}
-      - name: Backend por canario (5% > 25% > 50% > 100%, rollback por SLO)
+      - if: env.HAS_KUBE == 'true'
+        name: Backend por canario (5% > 25% > 50% > 100%, rollback por SLO)
         env:
           PROM_URL: ${{ secrets.PROM_URL }}
         run: ./scripts/canary.sh ${{ env.BACKEND_IMAGE }}:${{ needs.publish.outputs.sha }}
-      - name: Smoke test
+      - if: env.HAS_KUBE == 'true'
+        name: Smoke test
         run: ./scripts/smoke.sh shop
