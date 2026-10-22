@@ -5,8 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+# Um push novo no mesmo PR cancela a rodada anterior (em main nunca cancela: cada commit tem o seu resultado)
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MAVEN_ARGS: --no-transfer-progress
+
 jobs:
   backend:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: write   # so para comentar o resumo da falha no commit (scripts/ci-report-failure.sh)
@@ -46,6 +55,7 @@ jobs:
           -Dsonar.qualitygate.wait=true
 
   gateway:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,6 +71,7 @@ jobs:
 
   services:
     # Versao microsservicos: contratos, infra comum (outbox/inbox) e os 3 servicos
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -95,6 +106,7 @@ jobs:
 
   web:
     # Shell + microfrontends: build dos 4 apps e teste de Module Federation em Chromium
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -107,6 +119,11 @@ jobs:
           cache: npm
           cache-dependency-path: microservices/web/package-lock.json
       - run: npm ci
+      - name: Cache do Chromium do Playwright
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('microservices/web/package-lock.json') }}
       - run: npm run build:all
       - name: Module Federation no navegador
         run: |
@@ -117,6 +134,7 @@ jobs:
           npm run test:federation
 
   frontend:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -138,6 +156,7 @@ jobs:
       - run: npx ng test --watch=false --browsers=ChromeHeadlessCI
 
   manifests:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -148,11 +167,15 @@ jobs:
           kubectl kustomize microservices/k8s/overlays/staging > /dev/null
           kubectl kustomize microservices/k8s/overlays/production > /dev/null
           kubectl kustomize microservices/k8s/overlays/production-secure > /dev/null
+      - name: Cache do actionlint
+        uses: actions/cache@v5
+        with:
+          path: actionlint
+          key: actionlint-1.7.7
       - name: Lint dos scripts e workflows
         run: |
-          sudo apt-get install -y shellcheck
-          shellcheck scripts/*.sh
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          shellcheck scripts/*.sh   # ja vem instalado no runner
+          [ -x ./actionlint ] || bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
           ./actionlint
       - name: Gera e valida os certificados locais (HTTPS do compose)
         run: |
@@ -169,7 +192,7 @@ jobs:
             --env-file microservices/infra/vm/generated/.env config -q
 
   e2e:
-    needs: [backend, gateway, frontend]
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -178,6 +201,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Cache do Chromium do Playwright
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Sobe a stack (Keycloak, Kafka, Postgres, backend, frontend)
         run: |
           set -o pipefail
@@ -202,7 +232,7 @@ jobs:
         run: docker compose logs --no-color | tail -n 300
 
   e2e-microservices:
-    needs: [services, web]
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -211,6 +241,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Cache do Chromium do Playwright
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - name: Certificados locais
         run: microservices/infra/tls/gen-certs.sh
       - name: Sobe a stack de microsservicos
