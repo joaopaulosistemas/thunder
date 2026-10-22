@@ -27,6 +27,9 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Angular 20 exige zone.js ~0.15 (peer); 0.16 quebra o npm ci
+      - dependency-name: "zone.js"
+        versions: [">=0.16.0"]
     groups:
       angular:
         patterns: ["@angular/*"]
@@ -37,6 +40,9 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Angular 20 exige zone.js ~0.15 (peer); 0.16 quebra o npm ci
+      - dependency-name: "zone.js"
+        versions: [">=0.16.0"]
     groups:
       angular:
         patterns: ["@angular/*", "@angular-architects/*"]
@@ -51,6 +57,8 @@ updates:
     directory: /backend
     schedule: { interval: weekly }
     ignore:
+      # imagem de build precisa continuar no JDK 21 (o mesmo do runtime e do CI)
+      - dependency-name: "maven"
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: docker

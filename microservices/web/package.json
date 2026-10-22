@@ -43,7 +43,7 @@
     "keycloak-js": "^26.2.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
-    "zone.js": "~0.16.3"
+    "zone.js": "~0.15.0"
   },
   "devDependencies": {
     "@angular-architects/native-federation": "^20.3.1",
