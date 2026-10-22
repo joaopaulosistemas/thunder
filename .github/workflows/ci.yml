@@ -120,7 +120,7 @@ jobs:
           cache-dependency-path: microservices/web/package-lock.json
       - run: npm ci
       - name: Cache do Chromium do Playwright
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('microservices/web/package-lock.json') }}
@@ -168,7 +168,7 @@ jobs:
           kubectl kustomize microservices/k8s/overlays/production > /dev/null
           kubectl kustomize microservices/k8s/overlays/production-secure > /dev/null
       - name: Cache do actionlint
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: actionlint
           key: actionlint-1.7.7
@@ -204,7 +204,7 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - name: Cache do Chromium do Playwright
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
@@ -244,7 +244,7 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - name: Cache do Chromium do Playwright
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
